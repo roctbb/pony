@@ -333,44 +333,39 @@ class DBAPIProvider(object):
         cursor.execute(sql)
 
 class Pool(localbase):
-    forked_connections = []
-    def __init__(pool, dbapi_module, *args, **kwargs): # called separately in each thread
+    def __init__(pool, dbapi_module, *args, **kwargs):  # called separately in each thread
         pool.dbapi_module = dbapi_module
         pool.args = args
         pool.kwargs = kwargs
         pool.con = pool.pid = None
+
     def connect(pool):
-        pid = os.getpid()
-        if pool.con is not None and pool.pid != pid:
-            pool.forked_connections.append((pool.con, pool.pid))
-            pool.con = pool.pid = None
         core = pony.orm.core
-        is_new_connection = False
-        if pool.con is None:
-            if core.local.debug: core.log_orm('GET NEW CONNECTION')
-            is_new_connection = True
-            pool._connect()
-            pool.pid = pid
-        elif core.local.debug:
-            core.log_orm('GET CONNECTION FROM THE LOCAL POOL')
+
+        if core.local.debug: core.log_orm('GET NEW CONNECTION')
+        is_new_connection = True
+        pool._connect()
         return pool.con, is_new_connection
+
     def _connect(pool):
         pool.con = pool.dbapi_module.connect(*pool.args, **pool.kwargs)
+
     def release(pool, con):
-        assert con is pool.con
-        try: con.rollback()
+        try:
+            con.rollback()
         except:
             pool.drop(con)
             raise
+
     def drop(pool, con):
-        assert con is pool.con, (con, pool.con)
         pool.con = None
         con.close()
+
     def disconnect(pool):
         con = pool.con
         pool.con = None
         if con is not None: con.close()
-
+            
 class Converter(object):
     EQ = 'EQ'
     NE = 'NE'
